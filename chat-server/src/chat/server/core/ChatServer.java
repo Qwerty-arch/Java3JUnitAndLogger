@@ -6,12 +6,16 @@ import network.ServerSocketThreadListener;
 import network.SocketThread;
 import network.SocketThreadListener;
 
+import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Vector;
+import java.util.logging.*;
+//import org.apache.logging.log4j.LogManager;
+//import org.apache.logging.log4j.Logger;
 
 public class ChatServer implements ServerSocketThreadListener, SocketThreadListener {
 
@@ -21,8 +25,31 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
     private Vector<SocketThread> clients = new Vector<>();      // Те сокеты, которые мы создаем, нужно складывать в список, т.е. у нас может подключится много клиентов и нус должен быть спиоок клиентов// создаем потоко-безопасный аналог эррей-листа// вектор с клиентами, в вектор мы складываем сокет-треды, т.е. все те треды, которые МЫ с вами, как сервак, нагенерили с НАШЕЙ стороны, это сокет-треды НАШИ, которые мы сгенерили и они будет соеденины с теми сокет-тредыми, которые на клиенте. Это НЕ сокет-треды клиентов. Это сокет-треды, которые сгенерил наш сервак
     // у нас существовала большая проблема, что внутри vector у нас лежат как авторизованные клиенты, так и не авторизованные - это плохо // Как узнать авторизован поток или нет ? => никак , т.к. потому что ServerSocket, также как и SocketThread - эти все вещи у нас отвязаны от нашего чата, они вообще нечего не знают о том, чтоо у нас будут какие-то там nickname или ещё что-то такое  // Как выйти из этой ситуации ? => нам нужен свой собственный класс, который будет символизировать нашего подключенного пользователя с набором флажков (# является он там авторизованым или нет, поле с nickname добавить ему и тд)
     private SocketThread socketThread;
+    private static final Logger logger = Logger.getLogger(ChatServer.class.getName());
+    private static Handler handler;
+    private static final String LOG_FILE = "ChatServer.log";
+
+
     public ChatServer(ChatServerListener listener) {
         this.listener = listener;
+        setHandler(LOG_FILE);
+        setLogger();
+    }
+
+    private void setLogger() {
+        logger.setLevel(Level.ALL);
+        logger.addHandler(handler);
+        logger.setUseParentHandlers(false);
+    }
+
+    private void setHandler(String logfile) {
+        try {
+            handler = new FileHandler(logfile, true);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        handler.setFormatter(new SimpleFormatter());
+        handler.setLevel(Level.ALL);
     }
 
     public void start(int port) {
@@ -54,6 +81,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
     public void onServerStart(ServerSocketThread thread) {  // по старту сервака
         putLog("Server thread started");
         SqlClient.connect();                                // подключаемся к базе
+        logger.log(Level.INFO, "Server started");
     }
 
     @Override
@@ -63,6 +91,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
         for (int i = 0; i < clients.size(); i++) {          // бежим по всем клиентам
             clients.get(i).close();                         // делаем close
         }
+        logger.log(Level.INFO, "Server stopped");
 
     }
 
@@ -87,6 +116,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
     @Override
     public void onServerException(ServerSocketThread thread, Throwable exception) {
         exception.printStackTrace();
+        logger.log(Level.WARNING, "Error : " + exception);
     }
 
     /**
@@ -144,6 +174,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
             client.authAccept(nickname);                                                                  // если всё хорошо, то Accept(мы говорим всем клиентам о том, что он авторизован) // авторизовали у нового клиента, всё хорошо ему сделали в любом случае
             if (oldClient == null) {
             sendToAuthClients(Library.getTypeBroadcast("Server", nickname + " connected")); // всем посылаем сообщение, что новый участник connected // "Server" - источник
+            logger.log(Level.INFO, "Client connected: " + nickname);
             } else {
                 oldClient.reconnect();                                                                   // реконекктим
                 clients.remove(oldClient);                                                               // remove нашего старого клента    // если старого нашли, то надо старого отконектить
@@ -177,6 +208,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
     @Override
     public synchronized void onSocketException(SocketThread thread, Exception exception) {
         exception.printStackTrace();
+        logger.log(Level.INFO, "Socket exception: " + exception);
     }
 
     private String getUsers() {                                      // как собрать всех пользователей в одну кучку
