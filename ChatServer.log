@@ -1,0 +1,8 @@
+мар 08, 2020 10:13:28 PM chat.server.core.ChatServer onServerStart
+INFO: Server started
+мар 08, 2020 10:13:56 PM chat.server.core.ChatServer handleNonAuthMessage
+INFO: Client connected: Ivan-igorevich
+мар 08, 2020 10:14:09 PM chat.server.core.ChatServer onSocketException
+INFO: Socket exception: java.io.EOFException
+мар 08, 2020 10:14:12 PM chat.server.core.ChatServer onServerStop
+INFO: Server stopped
